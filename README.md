@@ -1,93 +1,92 @@
 # Timeline Project
 
-## 包结构说明
+## Package Structure Description
 
 ### com.heyu.timeline.core
-核心时间线功能包，包含主要的类和接口：
-- `Event` - 时间线事件类
-- `OverlappingTimeLine` - 支持重叠事件的时间线实现
-- `TimeLine` - 不允许事件重叠的时间线实现
-- `EvictionStrategy` - 淘汰策略接口
+Core timeline functionality package, containing main classes and interfaces:
+- `Event` - Timeline event class
+- `OverlappingTimeLine` - Timeline implementation supporting overlapping events
+- `TimeLine` - Timeline implementation that does not allow event overlap
+- `EvictionStrategy` - Eviction strategy interface
 
 ### com.heyu.timeline.exception
-异常处理包，包含自定义异常类：
-- `TimeLineException` - 时间线相关操作的自定义异常
+Exception handling package, containing custom exception classes:
+- `TimeLineException` - Custom exception for timeline-related operations
 
 ### com.heyu.timeline.calculator
-时间计算包，包含时间计算接口和实现：
-- `TimeCalculator` - 时间计算接口
-- `SimpleTimeCalculator` - 简单时间计算器实现
+Time calculation package, containing time calculation interfaces and implementations:
+- `TimeCalculator` - Time calculation interface
+- `SimpleTimeCalculator` - Simple time calculator implementation
 
 ### com.heyu.timeline.factory
-工厂模式包，包含工厂类和时间线池：
-- `TimeLineFactory` - 时间线工厂类
-- `TimeLinePool` - 时间线池，用于管理时间线实例
-- `TimeLines` - 时间线实体类
+Factory pattern package, containing factory classes and timeline pool:
+- `TimeLineFactory` - Timeline factory class
+- `TimeLinePool` - Timeline pool for managing timeline instances
 
 ### com.heyu.timeline.example
-示例包，包含使用示例：
-- `TimeLineUsageExample` - OverlappingTimeLine使用示例
-- `TimeLinePoolExample` - TimeLinePool使用示例
-- `TimeLineExample` - TimeLine使用示例
-- `CompleteTimeLineExample` - 完整的TimeLine使用示例
-- `TimeLineStrategyExample` - TimeLine淘汰策略示例
-- `BothTimeLineTypesExample` - 两种时间线类型对比示例
+Example package, containing usage examples:
+- `TimeLineUsageExample` - OverlappingTimeLine usage example
+- `TimeLinePoolExample` - TimeLinePool usage example
+- `TimeLineExample` - TimeLine usage example
+- `CompleteTimeLineExample` - Complete TimeLine usage example
+- `TimeLineStrategyExample` - TimeLine eviction strategy example
+- `BothTimeLineTypesExample` - Comparison example of both timeline types
 
-## 使用说明
+## Usage Instructions
 
-1. 核心使用方式：
+1. Core usage:
 ```java
-// 使用支持重叠的TimeLine
+// Using TimeLine that supports overlaps
 OverlappingTimeLine<Integer> overlappingTimeLine = new OverlappingTimeLine<>();
 Event<Integer> event = new Event<>(10, 20, "Meeting");
 overlappingTimeLine.addEvent(event);
 
-// 使用不支持重叠的TimeLine
+// Using TimeLine that does not support overlaps
 TimeLine<Integer> timeLine = new TimeLine<>();
 timeLine.addEvent(event);
 ```
 
-2. 使用工厂创建时间线：
+2. Creating timelines using factory:
 ```java
 OverlappingTimeLine<Integer> timeLine = TimeLineFactory.createOverlappingTimeLine();
 ```
 
-3. 使用时间线池管理时间线：
+3. Managing timelines using timeline pool:
 ```java
-// 设置最大时间线数量（默认为3）
+// Set maximum number of timelines (default is 3)
 TimeLinePool.setMaxTimeLines(5);
 
-// 获取OverlappingTimeLine
+// Get OverlappingTimeLine
 OverlappingTimeLine<Integer> overlappingTimeLine = TimeLinePool.getOverlappingTimeLine("myOverlappingTimeline");
 
-// 获取TimeLine
+// Get TimeLine
 TimeLine<Integer> timeLine = TimeLinePool.getTimeLine("myTimeline");
 
-// 获取当前时间线数量
+// Get current timeline count
 int count = TimeLinePool.getCurrentTimeLineCount();
 ```
 
-4. 使用淘汰策略：
+4. Using eviction strategies:
 ```java
 TimeLine<Integer> timeLine = new TimeLine<>();
-// 设置淘汰策略（默认为DISCARD）
+// Set eviction strategy (default is DISCARD)
 timeLine.setEvictionStrategy(EvictionStrategy.getDelayStrategy());
 ```
 
-## 特性说明
+## Feature Description
 
 ### TimeLine vs OverlappingTimeLine
-- `OverlappingTimeLine`: 允许事件在时间上重叠
-- `TimeLine`: 不允许事件在时间上重叠，通过淘汰策略处理冲突
+- `OverlappingTimeLine`: Allows events to overlap in time
+- `TimeLine`: Does not allow events to overlap in time, handles conflicts through eviction strategies
 
-### 淘汰策略
-- `EvictionStrategy.getDiscardStrategy()`: 当新事件与现有事件冲突时，直接丢弃新事件
-- `EvictionStrategy.getDelayStrategy()`: 当新事件与现有事件冲突时，将新事件延迟到时间线末尾
+### Eviction Strategies
+- `EvictionStrategy.getDiscardStrategy()`: When a new event conflicts with existing events, discard the new event directly
+- `EvictionStrategy.getDelayStrategy()`: When a new event conflicts with existing events, delay the new event to the end of the timeline
 
-### 时间线池
-- 控制创建的时间线数量，防止资源耗尽
-- 默认最大数量为3，可通过`setMaxTimeLines`方法修改
-- 支持两种类型的时间线：`OverlappingTimeLine`和`TimeLine`
-- 通过不同方法获取不同类型的时间线：
-  - `getOverlappingTimeLine()` - 获取OverlappingTimeLine实例
-  - `getTimeLine()` - 获取TimeLine实例
+### Timeline Pool
+- Controls the number of created timelines to prevent resource exhaustion
+- Default maximum quantity is 3, can be modified via `setMaxTimeLines` method
+- Supports two types of timelines: `OverlappingTimeLine` and `TimeLine`
+- Get different types of timelines through different methods:
+  - `getOverlappingTimeLine()` - Get OverlappingTimeLine instance
+  - `getTimeLine()` - Get TimeLine instance
