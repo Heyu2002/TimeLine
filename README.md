@@ -1,5 +1,39 @@
 # Timeline Project
 
+### Instructions for Use
+
+To use this library in your Maven project:
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.github.Heyu2002</groupId>
+    <artifactId>TimeLine</artifactId>
+    <version>v0.0.0</version>
+</dependency>
+```
+
+For Gradle projects:
+
+```gradle
+allprojects {
+    repositories {
+        ...
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+dependencies {
+    implementation 'com.github.Heyu2002:TimeLine:v0.0.0'
+}
+```
+
 ## Package Structure Description
 
 ### com.heyu.timeline.core
@@ -34,7 +68,7 @@ Example package, containing usage examples:
 
 ## Usage Instructions
 
-1. Core usage:
+### 1. Core usage:
 ```java
 // Using TimeLine that supports overlaps
 OverlappingTimeLine<Integer> overlappingTimeLine = new OverlappingTimeLine<>();
@@ -46,12 +80,12 @@ TimeLine<Integer> timeLine = new TimeLine<>();
 timeLine.addEvent(event);
 ```
 
-2. Creating timelines using factory:
+### 2. Creating timelines using factory:
 ```java
 OverlappingTimeLine<Integer> timeLine = TimeLineFactory.createOverlappingTimeLine();
 ```
 
-3. Managing timelines using timeline pool:
+### 3. Managing timelines using timeline pool:
 ```java
 // Set maximum number of timelines (default is 3)
 TimeLinePool.setMaxTimeLines(5);
@@ -66,12 +100,14 @@ TimeLine<Integer> timeLine = TimeLinePool.getTimeLine("myTimeline");
 int count = TimeLinePool.getCurrentTimeLineCount();
 ```
 
-4. Using eviction strategies:
+### 4. Using eviction strategies:
 ```java
 TimeLine<Integer> timeLine = new TimeLine<>();
 // Set eviction strategy (default is DISCARD)
 timeLine.setEvictionStrategy(EvictionStrategy.getDelayStrategy());
 ```
+
+
 
 ## Feature Description
 

@@ -1,5 +1,39 @@
 # Timeline Project
 
+### 使用说明
+
+在 Maven 项目中使用此库：
+
+```xml
+<repositories>
+    <repository>
+        <id>jitpack.io</id>
+        <url>https://jitpack.io</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.github.Heyu2002</groupId>
+    <artifactId>TimeLine</artifactId>
+    <version>v0.0.0</version>
+</dependency>
+```
+
+对于 Gradle 项目：
+
+```gradle
+allprojects {
+    repositories {
+        ...
+        maven { url 'https://jitpack.io' }
+    }
+}
+
+dependencies {
+    implementation 'com.github.Heyu2002:TimeLine:v0.0.0'
+}
+```
+
 ## 包结构说明
 
 ### com.heyu.timeline.core
@@ -35,7 +69,7 @@
 
 ## 使用说明
 
-1. 核心使用方式：
+### 1. 核心使用方式：
 ```java
 // 使用支持重叠的TimeLine
 OverlappingTimeLine<Integer> overlappingTimeLine = new OverlappingTimeLine<>();
@@ -47,12 +81,12 @@ TimeLine<Integer> timeLine = new TimeLine<>();
 timeLine.addEvent(event);
 ```
 
-2. 使用工厂创建时间线：
+### 2. 使用工厂创建时间线：
 ```java
 OverlappingTimeLine<Integer> timeLine = TimeLineFactory.createOverlappingTimeLine();
 ```
 
-3. 使用时间线池管理时间线：
+### 3. 使用时间线池管理时间线：
 ```java
 // 设置最大时间线数量（默认为3）
 TimeLinePool.setMaxTimeLines(5);
@@ -67,12 +101,14 @@ TimeLine<Integer> timeLine = TimeLinePool.getTimeLine("myTimeline");
 int count = TimeLinePool.getCurrentTimeLineCount();
 ```
 
-4. 使用淘汰策略：
+### 4. 使用淘汰策略：
 ```java
 TimeLine<Integer> timeLine = new TimeLine<>();
 // 设置淘汰策略（默认为DISCARD）
 timeLine.setEvictionStrategy(EvictionStrategy.getDelayStrategy());
 ```
+
+
 
 ## 特性说明
 
