@@ -13,20 +13,40 @@ import lombok.NoArgsConstructor;
 
 /**
  * 时间线数据结构，用于存储和管理可能重叠的事件
- * @param <T> 时间类型，必须实现Comparable接口
+ * @param <T> 时间类型
  */
 @AllArgsConstructor
 @NoArgsConstructor(force = true)
-public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
+public class OverlappingTimeLine<T> implements TimelineStructure<T> {
 
     // 使用列表存储所有事件
     private final List<Event<T>> events = new ArrayList<>();
 
     // 使用TreeMap按开始时间索引事件，支持同一时间点的多个事件
-    private final TreeMap<T, List<Event<T>>> startTimeIndex = new TreeMap<>();
+    private final TreeMap<T, List<Event<T>>> startTimeIndex = new TreeMap<>(new Comparator<T>() {
+        @SuppressWarnings("unchecked")
+        @Override
+        public int compare(T o1, T o2) {
+            if (o1 instanceof Comparable && o2 instanceof Comparable) {
+                return ((Comparable<T>) o1).compareTo(o2);
+            }
+            // 如果类型不可比较，使用toString进行比较
+            return o1.toString().compareTo(o2.toString());
+        }
+    });
 
     // 使用TreeMap按结束时间索引事件
-    private final TreeMap<T, List<Event<T>>> endTimeIndex = new TreeMap<>();
+    private final TreeMap<T, List<Event<T>>> endTimeIndex = new TreeMap<>(new Comparator<T>() {
+        @SuppressWarnings("unchecked")
+        @Override
+        public int compare(T o1, T o2) {
+            if (o1 instanceof Comparable && o2 instanceof Comparable) {
+                return ((Comparable<T>) o1).compareTo(o2);
+            }
+            // 如果类型不可比较，使用toString进行比较
+            return o1.toString().compareTo(o2.toString());
+        }
+    });
 
     // 为每个时间桶提供锁机制
     private final Map<T, Lock> startLocks = new ConcurrentHashMap<>();
@@ -121,13 +141,26 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
     private void findAndAssignTimeSlot(Event<T> event) throws TimeLineException {
         // 获取所有已排序的事件
         List<Event<T>> sortedEvents = getAllEvents();
-        Collections.sort(sortedEvents);
+        sortEvents(sortedEvents);
         
         // 如果没有任何事件，从"零点"开始安排
         if (sortedEvents.isEmpty()) {
-            // 这里需要根据具体的时间类型来确定"零点"，暂时抛出异常
-            throw new TimeLineException("Cannot automatically determine start time for event with only duration. " +
-                    "Please provide a specific start time or implement a custom TimeCalculator.");
+            // 使用时间计算器创建零点和结束时间
+            T zeroTime = getZeroTime();
+            T endTime = timeCalculator.add(zeroTime, event.getDuration());
+            event.setStart(zeroTime);
+            event.setEnd(endTime);
+            return;
+        }
+        
+        // 检查是否可以在第一个事件之前插入
+        Event<T> firstEvent = sortedEvents.get(0);
+        if (canFitBefore(firstEvent, event.getDuration())) {
+            T startTime = getZeroTime();
+            T endTime = timeCalculator.add(startTime, event.getDuration());
+            event.setStart(startTime);
+            event.setEnd(endTime);
+            return;
         }
         
         // 寻找两个事件之间的空隙是否足够容纳新事件
@@ -139,10 +172,13 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
             T gapStart = currentEvent.getEnd();
             T gapEnd = nextEvent.getStart();
             
-            // 计算这个时间段是否足够长来容纳新事件
-            // 这需要时间计算器来完成，这里只是一个概念性实现
-            throw new TimeLineException("Automatic time slot assignment requires a custom implementation " +
-                    "based on the specific time type. Please provide specific start and end times.");
+            if (canFitInGap(gapStart, gapEnd, event.getDuration())) {
+                T startTime = gapStart;
+                T endTime = timeCalculator.add(startTime, event.getDuration());
+                event.setStart(startTime);
+                event.setEnd(endTime);
+                return;
+            }
         }
         
         // 如果所有现有事件之后的时间段都可以容纳新事件，则安排在最后
@@ -151,6 +187,126 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
         T newEnd = timeCalculator.add(newStart, event.getDuration());
         event.setStart(newStart);
         event.setEnd(newEnd);
+    }
+    
+    /**
+     * 检查事件是否可以放在第一个事件之前
+     * @param firstEvent 第一个事件
+     * @param duration 持续时间
+     * @return 是否可以放置
+     */
+    private boolean canFitBefore(Event<T> firstEvent, T duration) {
+        // 检查从零点到第一个事件开始是否有足够的时间
+        try {
+            T zeroTime = getZeroTime();
+            return canFitInGap(zeroTime, firstEvent.getStart(), duration);
+        } catch (TimeLineException e) {
+            // 如果无法获取零点时间，则不能放在第一个事件之前
+            return false;
+        }
+    }
+    
+    /**
+     * 检查事件是否可以放在两个事件之间的间隙中
+     * @param gapStart 间隙开始时间
+     * @param gapEnd 间隙结束时间
+     * @param duration 持续时间
+     * @return 是否可以放置
+     */
+    private boolean canFitInGap(T gapStart, T gapEnd, T duration) {
+        // 如果开始时间等于结束时间，则没有间隙
+        if (timeCalculator.compare(gapStart, gapEnd) >= 0) {
+            return false;
+        }
+        
+        // 计算间隙的持续时间
+        T gapDuration;
+        try {
+            gapDuration = timeCalculator.subtract(gapEnd, gapStart);
+        } catch (UnsupportedOperationException e) {
+            // 如果不支持减法运算，则无法计算间隙大小
+            return false;
+        }
+        
+        // 比较间隙持续时间和事件持续时间
+        // 为了确保间隙足够大以容纳事件，我们需要考虑边界条件
+        // 在大多数时间系统中，一个持续时间为n的事件实际占用n个单位时间
+        // 但为了安全起见，我们要求间隙必须明显大于事件持续时间
+        int comparison = timeCalculator.compare(gapDuration, duration);
+        return comparison > 0;
+    }
+    
+    /**
+     * 获取零点时间
+     * @return 零点时间
+     */
+    private T getZeroTime() throws TimeLineException {
+        // 这里根据具体的时间类型来确定"零点"
+        if (timeCalculator != null) {
+            try {
+                return timeCalculator.getZero();
+            } catch (UnsupportedOperationException e) {
+                // 如果时间计算器不支持获取零点，则抛出自定义异常
+                throw new TimeLineException("TimeCalculator does not support getting zero time. " +
+                        "Please provide a TimeCalculator implementation that supports getZero() method.");
+            }
+        }
+        // 如果没有设置时间计算器，抛出异常
+        throw new TimeLineException("Cannot automatically determine zero time without a TimeCalculator. " +
+                "Please set a TimeCalculator using setTimeCalculator method.");
+    }
+    
+    /**
+     * 对事件列表进行排序
+     * @param events 事件列表
+     */
+    @SuppressWarnings("unchecked")
+    private void sortEvents(List<Event<T>> events) {
+        Collections.sort(events, new Comparator<Event<T>>() {
+            @Override
+            public int compare(Event<T> o1, Event<T> o2) {
+                // 首先比较开始时间
+                if (o1.getStart() != null && o2.getStart() != null) {
+                    if (o1.getStart() instanceof Comparable && o2.getStart() instanceof Comparable) {
+                        int startComparison = ((Comparable<T>) o1.getStart()).compareTo(o2.getStart());
+                        if (startComparison != 0) {
+                            return startComparison;
+                        }
+                    } else {
+                        int startComparison = o1.getStart().toString().compareTo(o2.getStart().toString());
+                        if (startComparison != 0) {
+                            return startComparison;
+                        }
+                    }
+                }
+                
+                // 开始时间相同时比较结束时间
+                if (o1.getEnd() != null && o2.getEnd() != null) {
+                    if (o1.getEnd() instanceof Comparable && o2.getEnd() instanceof Comparable) {
+                        int endComparison = ((Comparable<T>) o1.getEnd()).compareTo(o2.getEnd());
+                        if (endComparison != 0) {
+                            return endComparison;
+                        }
+                    } else {
+                        int endComparison = o1.getEnd().toString().compareTo(o2.getEnd().toString());
+                        if (endComparison != 0) {
+                            return endComparison;
+                        }
+                    }
+                }
+                
+                // 时间完全相同时，活跃事件排在非活跃事件前面
+                if (o1.isActive() && !o2.isActive()) {
+                    return -1;
+                }
+                if (!o1.isActive() && o2.isActive()) {
+                    return 1;
+                }
+                
+                // 都活跃或都不活跃，视为相等
+                return 0;
+            }
+        });
     }
 
     /**
@@ -265,7 +421,7 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
                     sortedEvents.add(event);
                 }
             }
-            Collections.sort(sortedEvents);
+            sortEvents(sortedEvents);
             return sortedEvents;
         } finally {
             globalLock.unlock();
@@ -296,7 +452,16 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
                     try {
                         for (Event<T> event : entry.getValue()) {
                             // 确保事件在指定时间仍然活跃（结束时间大于等于指定时间）且事件本身是活跃的
-                            if (event.getEnd().compareTo(time) >= 0 && event.isActive()) {
+                            // 注意：这里需要比较时间，但T类型可能不可比较
+                            boolean isEventActiveAtTime = false;
+                            if (event.getEnd() instanceof Comparable && time instanceof Comparable) {
+                                isEventActiveAtTime = ((Comparable<T>) event.getEnd()).compareTo(time) >= 0 && event.isActive();
+                            } else {
+                                // 简单的字符串比较
+                                isEventActiveAtTime = event.getEnd().toString().compareTo(time.toString()) >= 0 && event.isActive();
+                            }
+                            
+                            if (isEventActiveAtTime) {
                                 result.add(event);
                             }
                         }
@@ -324,7 +489,15 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
             throw new TimeLineException("Start time and end time cannot be null");
         }
 
-        if (start.compareTo(end) > 0) {
+        // 注意：这里需要比较时间，但T类型可能不可比较
+        boolean isStartAfterEnd = false;
+        if (start instanceof Comparable && end instanceof Comparable) {
+            isStartAfterEnd = ((Comparable<T>) start).compareTo(end) > 0;
+        } else {
+            isStartAfterEnd = start.toString().compareTo(end.toString()) > 0;
+        }
+        
+        if (isStartAfterEnd) {
             throw new TimeLineException("Start time cannot be after end time");
         }
 
@@ -342,7 +515,20 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
                     try {
                         for (Event<T> event : entry.getValue()) {
                             // 确保事件与指定时间段有重叠且事件本身是活跃的
-                            if (event.getEnd().compareTo(start) >= 0 && event.getStart().compareTo(end) <= 0 && event.isActive()) {
+                            // 需要检查event.getEnd() >= start && event.getStart() <= end
+                            boolean isOverlapping = false;
+                            if (event.getEnd() instanceof Comparable && start instanceof Comparable && 
+                                event.getStart() instanceof Comparable && end instanceof Comparable) {
+                                boolean endAfterStart = ((Comparable<T>) event.getEnd()).compareTo(start) >= 0;
+                                boolean startBeforeEnd = ((Comparable<T>) event.getStart()).compareTo(end) <= 0;
+                                isOverlapping = endAfterStart && startBeforeEnd && event.isActive();
+                            } else {
+                                boolean endAfterStart = event.getEnd().toString().compareTo(start.toString()) >= 0;
+                                boolean startBeforeEnd = event.getStart().toString().compareTo(end.toString()) <= 0;
+                                isOverlapping = endAfterStart && startBeforeEnd && event.isActive();
+                            }
+                            
+                            if (isOverlapping) {
                                 if (uniqueEvents.add(event)) {
                                     result.add(event);
                                 }
@@ -358,7 +544,7 @@ public class OverlappingTimeLine<T extends Comparable<T>> implements TimelineStr
         }
 
         // 按时间顺序排序
-        Collections.sort(result);
+        sortEvents(result);
         return result;
     }
 

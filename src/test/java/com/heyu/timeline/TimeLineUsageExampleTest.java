@@ -1,12 +1,14 @@
 package com.heyu.timeline;
 
-import com.heyu.timeline.calculator.SimpleTimeCalculator;
+import com.heyu.timeline.calculator.TimeCalculatorFactory;
 import com.heyu.timeline.core.Event;
 import com.heyu.timeline.core.OverlappingTimeLine;
 import com.heyu.timeline.exception.TimeLineException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
+
 import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
@@ -21,7 +23,7 @@ public class TimeLineUsageExampleTest {
         OverlappingTimeLine<Integer> timeLine = new OverlappingTimeLine<>();
         
         // 设置时间计算器
-        timeLine.setTimeCalculator(new SimpleTimeCalculator<>());
+        timeLine.setTimeCalculator(TimeCalculatorFactory.createTimeCalculator(Integer.class));
         
         // 创建有明确时间的事件
         Event<Integer> event1 = new Event<>(10, 20, "Meeting");

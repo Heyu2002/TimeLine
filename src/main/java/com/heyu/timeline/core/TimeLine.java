@@ -11,18 +11,38 @@ import java.util.concurrent.locks.ReentrantLock;
 /**
  * 时间线类，事件不能重叠
  * 如果有重叠事件，根据淘汰策略决定是插入到后续时间中还是直接抛弃
- * @param <T> 时间类型，必须实现Comparable接口
+ * @param <T> 时间类型
  */
-public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
+public class TimeLine<T> implements TimelineStructure<T> {
     
     // 使用列表存储所有事件
     private final List<Event<T>> events = new ArrayList<>();
     
-    // 使用TreeMap按开始时间索引事件
-    private final TreeMap<T, Event<T>> startTimeIndex = new TreeMap<>();
-    
+    // 使用TreeMap按开始时间索引事件，支持同一时间点的多个事件
+    private final TreeMap<T, Event<T>> startTimeIndex = new TreeMap<>(new Comparator<T>() {
+        @SuppressWarnings("unchecked")
+        @Override
+        public int compare(T o1, T o2) {
+            if (o1 instanceof Comparable && o2 instanceof Comparable) {
+                return ((Comparable<T>) o1).compareTo(o2);
+            }
+            // 如果类型不可比较，使用toString进行比较
+            return o1.toString().compareTo(o2.toString());
+        }
+    });
+
     // 使用TreeMap按结束时间索引事件
-    private final TreeMap<T, Event<T>> endTimeIndex = new TreeMap<>();
+    private final TreeMap<T, Event<T>> endTimeIndex = new TreeMap<>(new Comparator<T>() {
+        @SuppressWarnings("unchecked")
+        @Override
+        public int compare(T o1, T o2) {
+            if (o1 instanceof Comparable && o2 instanceof Comparable) {
+                return ((Comparable<T>) o1).compareTo(o2);
+            }
+            // 如果类型不可比较，使用toString进行比较
+            return o1.toString().compareTo(o2.toString());
+        }
+    });
     
     // 为每个时间桶提供锁机制
     private final Map<T, Lock> startLocks = new ConcurrentHashMap<>();
@@ -125,12 +145,19 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
      * @param event 要检查的事件
      * @return 如果有重叠返回true，否则返回false
      */
+    @SuppressWarnings("unchecked")
     private boolean hasOverlap(Event<T> event) {
         // 查找开始时间小于等于指定事件结束时间的所有事件
         SortedMap<T, Event<T>> headMap = startTimeIndex.headMap(event.getEnd(), true);
         for (Event<T> existingEvent : headMap.values()) {
             // 确保事件在指定时间仍然活跃（结束时间大于等于指定事件开始时间）
-            if (existingEvent.getEnd().compareTo(event.getStart()) >= 0) {
+            boolean isOverlapping = false;
+            if (existingEvent.getEnd() instanceof Comparable && event.getStart() instanceof Comparable) {
+                isOverlapping = ((Comparable<T>) existingEvent.getEnd()).compareTo(event.getStart()) >= 0;
+            } else {
+                isOverlapping = existingEvent.getEnd().toString().compareTo(event.getStart().toString()) >= 0;
+            }
+            if (isOverlapping) {
                 return true;
             }
         }
@@ -169,16 +196,15 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
     private void findAndAssignTimeSlot(Event<T> event) throws TimeLineException {
         // 获取所有已排序的事件
         List<Event<T>> sortedEvents = new ArrayList<>(events);
-        sortedEvents.sort((a, b) -> a.getStart().compareTo(b.getStart()));
+        sortEvents(sortedEvents);
         
         // 如果没有任何事件，从"零点"开始安排
         if (sortedEvents.isEmpty()) {
-            // 这里需要根据具体的时间类型来确定"零点"，暂时使用null
-            // 实际使用中需要根据具体的时间类型来确定
-            T start = null; // 需要具体实现
-            T end = start != null ? timeCalculator.add(start, event.getDuration()) : null;
-            event.setStart(start);
-            event.setEnd(end);
+            // 使用时间计算器创建零点和结束时间
+            T zeroTime = getZeroTime();
+            T endTime = timeCalculator.add(zeroTime, event.getDuration());
+            event.setStart(zeroTime);
+            event.setEnd(endTime);
             return;
         }
         
@@ -191,12 +217,11 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
             T gapStart = currentEvent.getEnd();
             T gapEnd = nextEvent.getStart();
             
-            // 计算这个时间段是否足够长来容纳新事件
-            // 这需要时间计算器来完成，这里只是一个概念性实现
-            T gapDuration = null; // 需要具体实现计算两个时间之间的差值
-            if (gapDuration != null && gapDuration.compareTo(event.getDuration()) >= 0) {
-                event.setStart(gapStart);
-                event.setEnd(timeCalculator.add(gapStart, event.getDuration()));
+            if (canFitInGap(gapStart, gapEnd, event.getDuration())) {
+                T startTime = gapStart;
+                T endTime = timeCalculator.add(startTime, event.getDuration());
+                event.setStart(startTime);
+                event.setEnd(endTime);
                 return;
             }
         }
@@ -207,6 +232,100 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
         T newEnd = timeCalculator.add(newStart, event.getDuration());
         event.setStart(newStart);
         event.setEnd(newEnd);
+    }
+    
+    /**
+     * 获取零点时间
+     * @return 零点时间
+     */
+    private T getZeroTime() throws TimeLineException {
+        // 这里根据具体的时间类型来确定"零点"
+        if (timeCalculator != null) {
+            try {
+                return timeCalculator.getZero();
+            } catch (UnsupportedOperationException e) {
+                // 如果时间计算器不支持获取零点，则抛出自定义异常
+                throw new TimeLineException("TimeCalculator does not support getting zero time. " +
+                        "Please provide a TimeCalculator implementation that supports getZero() method.");
+            }
+        }
+        // 如果没有设置时间计算器，抛出异常
+        throw new TimeLineException("Cannot automatically determine zero time without a TimeCalculator. " +
+                "Please set a TimeCalculator using setTimeCalculator method.");
+    }
+    
+    /**
+     * 检查事件是否可以放在两个事件之间的间隙中
+     * @param gapStart 间隙开始时间
+     * @param gapEnd 间隙结束时间
+     * @param duration 持续时间
+     * @return 是否可以放置
+     */
+    private boolean canFitInGap(T gapStart, T gapEnd, T duration) {
+        // 计算间隙的持续时间
+        T gapDuration;
+        try {
+            gapDuration = timeCalculator.subtract(gapEnd, gapStart);
+        } catch (UnsupportedOperationException e) {
+            // 如果不支持减法运算，则无法计算间隙大小
+            return false;
+        }
+        
+        // 比较间隙持续时间和事件持续时间
+        return timeCalculator.compare(gapDuration, duration) >= 0;
+    }
+    
+    /**
+     * 对事件列表进行排序
+     * @param events 事件列表
+     */
+    @SuppressWarnings("unchecked")
+    private void sortEvents(List<Event<T>> events) {
+        Collections.sort(events, new Comparator<Event<T>>() {
+            @Override
+            public int compare(Event<T> o1, Event<T> o2) {
+                // 首先比较开始时间
+                if (o1.getStart() != null && o2.getStart() != null) {
+                    if (o1.getStart() instanceof Comparable && o2.getStart() instanceof Comparable) {
+                        int startComparison = ((Comparable<T>) o1.getStart()).compareTo(o2.getStart());
+                        if (startComparison != 0) {
+                            return startComparison;
+                        }
+                    } else {
+                        int startComparison = o1.getStart().toString().compareTo(o2.getStart().toString());
+                        if (startComparison != 0) {
+                            return startComparison;
+                        }
+                    }
+                }
+                
+                // 开始时间相同时比较结束时间
+                if (o1.getEnd() != null && o2.getEnd() != null) {
+                    if (o1.getEnd() instanceof Comparable && o2.getEnd() instanceof Comparable) {
+                        int endComparison = ((Comparable<T>) o1.getEnd()).compareTo(o2.getEnd());
+                        if (endComparison != 0) {
+                            return endComparison;
+                        }
+                    } else {
+                        int endComparison = o1.getEnd().toString().compareTo(o2.getEnd().toString());
+                        if (endComparison != 0) {
+                            return endComparison;
+                        }
+                    }
+                }
+                
+                // 时间完全相同时，活跃事件排在非活跃事件前面
+                if (o1.isActive() && !o2.isActive()) {
+                    return -1;
+                }
+                if (!o1.isActive() && o2.isActive()) {
+                    return 1;
+                }
+                
+                // 都活跃或都不活跃，视为相等
+                return 0;
+            }
+        });
     }
     
     /**
@@ -313,7 +432,7 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
                     sortedEvents.add(event);
                 }
             }
-            sortedEvents.sort((a, b) -> a.getStart().compareTo(b.getStart()));
+            sortEvents(sortedEvents);
             return sortedEvents;
         } finally {
             globalLock.unlock();
@@ -339,7 +458,13 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
             SortedMap<T, Event<T>> headMap = startTimeIndex.headMap(time, true);
             for (Event<T> event : headMap.values()) {
                 // 确保事件在指定时间仍然活跃（结束时间大于等于指定时间）且事件本身是活跃的
-                if (event.getEnd().compareTo(time) >= 0 && event.isActive()) {
+                boolean isActiveAtTime = false;
+                if (event.getEnd() instanceof Comparable && time instanceof Comparable) {
+                    isActiveAtTime = ((Comparable<T>) event.getEnd()).compareTo(time) >= 0 && event.isActive();
+                } else {
+                    isActiveAtTime = event.getEnd().toString().compareTo(time.toString()) >= 0 && event.isActive();
+                }
+                if (isActiveAtTime) {
                     result.add(event);
                 }
             }
@@ -361,8 +486,16 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
         if (start == null || end == null) {
             throw new TimeLineException("Start time and end time cannot be null");
         }
+
+        // 注意：这里需要比较时间，但T类型可能不可比较
+        boolean isStartAfterEnd = false;
+        if (start instanceof Comparable && end instanceof Comparable) {
+            isStartAfterEnd = ((Comparable<T>) start).compareTo(end) > 0;
+        } else {
+            isStartAfterEnd = start.toString().compareTo(end.toString()) > 0;
+        }
         
-        if (start.compareTo(end) > 0) {
+        if (isStartAfterEnd) {
             throw new TimeLineException("Start time cannot be after end time");
         }
         
@@ -374,7 +507,20 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
             SortedMap<T, Event<T>> headMap = startTimeIndex.headMap(end, true);
             for (Event<T> event : headMap.values()) {
                 // 确保事件与指定时间段有重叠且事件本身是活跃的
-                if (event.getEnd().compareTo(start) >= 0 && event.getStart().compareTo(end) <= 0 && event.isActive()) {
+                // 需要检查event.getEnd() >= start && event.getStart() <= end
+                boolean isOverlapping = false;
+                if (event.getEnd() instanceof Comparable && start instanceof Comparable && 
+                    event.getStart() instanceof Comparable && end instanceof Comparable) {
+                    boolean endAfterStart = ((Comparable<T>) event.getEnd()).compareTo(start) >= 0;
+                    boolean startBeforeEnd = ((Comparable<T>) event.getStart()).compareTo(end) <= 0;
+                    isOverlapping = endAfterStart && startBeforeEnd && event.isActive();
+                } else {
+                    boolean endAfterStart = event.getEnd().toString().compareTo(start.toString()) >= 0;
+                    boolean startBeforeEnd = event.getStart().toString().compareTo(end.toString()) <= 0;
+                    isOverlapping = endAfterStart && startBeforeEnd && event.isActive();
+                }
+                
+                if (isOverlapping) {
                     result.add(event);
                 }
             }
@@ -383,7 +529,7 @@ public class TimeLine<T extends Comparable<T>> implements TimelineStructure<T> {
         }
         
         // 按时间顺序排序
-        result.sort((a, b) -> a.getStart().compareTo(b.getStart()));
+        sortEvents(result);
         return result;
     }
     

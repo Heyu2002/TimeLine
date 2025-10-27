@@ -6,12 +6,12 @@ import lombok.NoArgsConstructor;
 
 /**
  * 时间线事件
- * @param <T> 用来判断先后所需要的事件类型，需要实现comparable接口
+ * @param <T> 用来判断先后所需要的事件类型
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class Event<T extends Comparable<T>> implements Comparable<Event<T>>{
+public class Event<T> {
 
     /**
      * 事件的起始时间
@@ -89,36 +89,5 @@ public class Event<T extends Comparable<T>> implements Comparable<Event<T>>{
      */
     public boolean hasOnlyDuration() {
         return (this.start == null || this.end == null) && this.duration != null;
-    }
-
-    @Override
-    public int compareTo(Event<T> o) {
-        // 如果任一事件非活跃，只比较时间，不考虑活跃状态
-        // 首先比较开始时间
-        if (this.start != null && o.start != null) {
-            int startComparison = this.start.compareTo(o.start);
-            if (startComparison != 0) {
-                return startComparison;
-            }
-        }
-        
-        // 开始时间相同时比较结束时间
-        if (this.end != null && o.end != null) {
-            int endComparison = this.end.compareTo(o.end);
-            if (endComparison != 0) {
-                return endComparison;
-            }
-        }
-        
-        // 时间完全相同时，活跃事件排在非活跃事件前面
-        if (this.active && !o.active) {
-            return -1;
-        }
-        if (!this.active && o.active) {
-            return 1;
-        }
-        
-        // 都活跃或都不活跃，视为相等
-        return 0;
     }
 }

@@ -4,7 +4,7 @@ package com.heyu.timeline.calculator;
  * 时间计算器接口，用于处理时间类型的加减运算
  * @param <T> 时间类型
  */
-public interface TimeCalculator<T extends Comparable<T>> {
+public interface TimeCalculator<T> {
     
     /**
      * 计算开始时间加上持续时间后的结束时间
@@ -29,4 +29,10 @@ public interface TimeCalculator<T extends Comparable<T>> {
      * @return 时间差异
      */
     int compare(T t1, T t2);
+    
+    /**
+     * 获取零点时间（时间轴的起点）
+     * @return 零点时间
+     */
+    T getZero();
 }

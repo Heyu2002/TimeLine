@@ -8,7 +8,7 @@ import java.util.List;
  * 淘汰策略接口
  * @param <T> 时间类型
  */
-public interface EvictionStrategy<T extends Comparable<T>> {
+public interface EvictionStrategy<T> {
     
     /**
      * 丢弃策略：当有冲突时直接丢弃新事件
@@ -32,7 +32,7 @@ public interface EvictionStrategy<T extends Comparable<T>> {
     /**
      * 丢弃策略实现
      */
-    class DiscardEvictionStrategy<T extends Comparable<T>> implements EvictionStrategy<T> {
+    class DiscardEvictionStrategy<T> implements EvictionStrategy<T> {
         @Override
         public Event<T> resolveConflict(Event<T> newEvent, List<Event<T>> existingEvents) throws TimeLineException {
             // 直接丢弃新事件
@@ -43,7 +43,8 @@ public interface EvictionStrategy<T extends Comparable<T>> {
     /**
      * 延迟策略实现
      */
-    class DelayEvictionStrategy<T extends Comparable<T>> implements EvictionStrategy<T> {
+    class DelayEvictionStrategy<T> implements EvictionStrategy<T> {
+        @SuppressWarnings("unchecked")
         @Override
         public Event<T> resolveConflict(Event<T> newEvent, List<Event<T>> existingEvents) throws TimeLineException {
             if (existingEvents.isEmpty()) {
@@ -53,7 +54,14 @@ public interface EvictionStrategy<T extends Comparable<T>> {
             // 找到最后一个事件
             Event<T> lastEvent = existingEvents.get(existingEvents.size() - 1);
             for (Event<T> event : existingEvents) {
-                if (event.getEnd().compareTo(lastEvent.getEnd()) > 0) {
+                boolean isAfter = false;
+                if (event.getEnd() instanceof Comparable && lastEvent.getEnd() instanceof Comparable) {
+                    isAfter = ((Comparable<T>) event.getEnd()).compareTo(lastEvent.getEnd()) > 0;
+                } else {
+                    isAfter = event.getEnd().toString().compareTo(lastEvent.getEnd().toString()) > 0;
+                }
+                
+                if (isAfter) {
                     lastEvent = event;
                 }
             }
@@ -71,7 +79,7 @@ public interface EvictionStrategy<T extends Comparable<T>> {
      * @return 丢弃策略实例
      */
     @SuppressWarnings("unchecked")
-    static <T extends Comparable<T>> EvictionStrategy<T> getDiscardStrategy() {
+    static <T> EvictionStrategy<T> getDiscardStrategy() {
         return (EvictionStrategy<T>) DISCARD;
     }
     
@@ -81,7 +89,7 @@ public interface EvictionStrategy<T extends Comparable<T>> {
      * @return 延迟策略实例
      */
     @SuppressWarnings("unchecked")
-    static <T extends Comparable<T>> EvictionStrategy<T> getDelayStrategy() {
+    static <T> EvictionStrategy<T> getDelayStrategy() {
         return (EvictionStrategy<T>) DELAY;
     }
 }

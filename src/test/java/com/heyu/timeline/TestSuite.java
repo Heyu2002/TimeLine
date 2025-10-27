@@ -15,7 +15,10 @@ import org.junit.platform.suite.api.Suite;
     TimeLinePoolExampleTest.class,
     TimeLineStrategyExampleTest.class,
     TimeLineUsageExampleTest.class,
-    TimelineStructureExampleTest.class
+    TimelineStructureExampleTest.class,
+    AutoScheduleTest.class,
+    TypeParameterTest.class,
+    JavaTimeTypesTest.class
 })
 public class TestSuite {
     // 测试套件，运行所有测试类

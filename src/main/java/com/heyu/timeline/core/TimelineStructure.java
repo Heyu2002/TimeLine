@@ -7,9 +7,9 @@ import java.util.List;
 
 /**
  * 时间线结构接口，定义了时间线的基本操作
- * @param <T> 时间类型，必须实现Comparable接口
+ * @param <T> 时间类型
  */
-public interface TimelineStructure<T extends Comparable<T>> {
+public interface TimelineStructure<T> {
     
     /**
      * 设置时间计算器

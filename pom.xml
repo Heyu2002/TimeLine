@@ -35,10 +35,6 @@
     <url>http://github.com/Heyu2002/timeline/tree/master</url>
   </scm>
 
-
-
-
-
   <properties>
     <maven.compiler.source>8</maven.compiler.source>
     <maven.compiler.target>8</maven.compiler.target>
