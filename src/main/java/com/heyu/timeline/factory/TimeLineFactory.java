@@ -1,7 +1,7 @@
 package com.heyu.timeline.factory;
 
-import com.heyu.timeline.core.OverlappingTimeLine;
-import com.heyu.timeline.core.TimeLine;
+import com.heyu.timeline.core.timeline.OverlappingTimeLine;
+import com.heyu.timeline.core.timeline.TimeLine;
 
 /**
  * 时间线工厂类

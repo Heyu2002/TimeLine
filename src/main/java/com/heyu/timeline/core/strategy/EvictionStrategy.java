@@ -1,5 +1,6 @@
-package com.heyu.timeline.core;
+package com.heyu.timeline.core.strategy;
 
+import com.heyu.timeline.core.model.Event;
 import com.heyu.timeline.exception.TimeLineException;
 
 import java.util.List;

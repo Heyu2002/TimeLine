@@ -1,8 +1,9 @@
 package com.heyu.timeline;
 
-import com.heyu.timeline.core.Event;
-import com.heyu.timeline.core.OverlappingTimeLine;
-import com.heyu.timeline.core.TimeLine;
+import com.heyu.timeline.core.model.Event;
+import com.heyu.timeline.core.timeline.OverlappingTimeLine;
+import com.heyu.timeline.core.timeline.TimeLine;
+import com.heyu.timeline.core.strategy.EvictionStrategy;
 import com.heyu.timeline.exception.TimeLineException;
 import com.heyu.timeline.factory.TimeLinePool;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ public class BothTimeLineTypesExampleTest {
         assertEquals(2, TimeLinePool.getCurrentTimeLineCount());
         
         // 测试TimeLine中的重叠事件处理
-        timeLine.setEvictionStrategy(com.heyu.timeline.core.EvictionStrategy.getDelayStrategy());
+        timeLine.setEvictionStrategy(EvictionStrategy.getDelayStrategy());
         timeLine.addEvent(new Event<>(12, 18, "Event C (overlapping with Event A, should be delayed)"));
         
         // 验证OverlappingTimeLine中的所有事件（应该都保留）

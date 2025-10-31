@@ -1,5 +1,7 @@
-package com.heyu.timeline.core;
+package com.heyu.timeline.core.timeline;
 
+import com.heyu.timeline.core.model.Event;
+import com.heyu.timeline.core.strategy.EvictionStrategy;
 import com.heyu.timeline.exception.TimeLineException;
 import com.heyu.timeline.calculator.TimeCalculator;
 

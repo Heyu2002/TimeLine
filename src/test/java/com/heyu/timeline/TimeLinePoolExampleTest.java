@@ -1,7 +1,7 @@
 package com.heyu.timeline;
 
-import com.heyu.timeline.core.Event;
-import com.heyu.timeline.core.OverlappingTimeLine;
+import com.heyu.timeline.core.model.Event;
+import com.heyu.timeline.core.timeline.OverlappingTimeLine;
 import com.heyu.timeline.exception.TimeLineException;
 import com.heyu.timeline.factory.TimeLinePool;
 import org.junit.jupiter.api.Test;

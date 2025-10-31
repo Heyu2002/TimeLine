@@ -1,7 +1,7 @@
 package com.heyu.timeline.factory;
 
-import com.heyu.timeline.core.OverlappingTimeLine;
-import com.heyu.timeline.core.TimeLine;
+import com.heyu.timeline.core.timeline.OverlappingTimeLine;
+import com.heyu.timeline.core.timeline.TimeLine;
 import com.heyu.timeline.exception.TimeLineException;
 
 import java.util.Map;

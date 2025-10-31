@@ -1,4 +1,4 @@
-package com.heyu.timeline.core;
+package com.heyu.timeline.core.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

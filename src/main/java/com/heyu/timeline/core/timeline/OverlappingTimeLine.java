@@ -1,6 +1,7 @@
-package com.heyu.timeline.core;
+package com.heyu.timeline.core.timeline;
 
 import com.heyu.timeline.calculator.TimeCalculator;
+import com.heyu.timeline.core.model.Event;
 import com.heyu.timeline.exception.TimeLineException;
 
 import java.util.*;

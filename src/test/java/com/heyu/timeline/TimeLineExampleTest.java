@@ -1,7 +1,7 @@
 package com.heyu.timeline;
 
-import com.heyu.timeline.core.Event;
-import com.heyu.timeline.core.TimeLine;
+import com.heyu.timeline.core.model.Event;
+import com.heyu.timeline.core.timeline.TimeLine;
 import com.heyu.timeline.exception.TimeLineException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
